@@ -1,0 +1,131 @@
+/* ---------- 应用外壳与布局 ---------- */
+
+.jm-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    var(--gradient-glow),
+    var(--bg-page);
+}
+
+/* 顶栏 */
+.jm-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  background: rgba(11, 11, 18, 0.75);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.jm-header__inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jm-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jm-header__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--gradient-brand);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.jm-header__logo::after {
+  content: '✦';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: #fff;
+}
+
+.jm-header__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: linear-gradient(90deg, #fff, #c9bdff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.jm-header__subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.jm-header__tag {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.jm-header__tag.is-live {
+  color: var(--success);
+  border-color: rgba(61, 220, 151, 0.3);
+}
+
+/* 双栏主区 */
+.jm-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* 左栏：创作面板 */
+.jm-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 84px;
+}
+
+/* 右栏：画布 */
+.jm-canvas {
+  min-height: 60vh;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+/* 响应式折叠 */
+@media (max-width: 900px) {
+  .jm-main {
+    grid-template-columns: 1fr;
+  }
+
+  .jm-panel {
+    position: static;
+  }
+}
