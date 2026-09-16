@@ -3,74 +3,101 @@ import {
   REFERENCE_IMAGE_MAX_BYTES,
   REFERENCE_IMAGE_TYPES,
 } from '../constants/options'
-import type { ReferenceImage } from '../types/generation'
+import { uploadReferenceImage } from '../api/chat'
+import type { ReferenceImage, ReferenceImagePurpose } from '../types/generation'
 
 interface ImageUploaderProps {
   value: ReferenceImage | null
   onChange: (value: ReferenceImage | null) => void
   disabled?: boolean
+  className?: string
+  title?: string
+  label?: string
+  referenceId?: string
+  purpose: ReferenceImagePurpose
 }
 
-/** 图生视频参考图上传：类型/大小校验 → dataUrl 缩略图 */
-export function ImageUploader({ value, onChange, disabled }: ImageUploaderProps) {
+/** 参考图上传：先 POST /v1/uploads，再保存预签名 URL */
+export function ImageUploader({
+  value,
+  onChange,
+  disabled,
+  className,
+  title,
+  label,
+  referenceId,
+  purpose,
+}: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setError(null)
     if (!REFERENCE_IMAGE_TYPES.includes(file.type)) {
       setError('仅支持 PNG / JPG / WebP 图片')
       return
     }
     if (file.size > REFERENCE_IMAGE_MAX_BYTES) {
-      setError('图片大小不能超过 5MB')
+      setError('图片大小不能超过 10MB')
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      onChange({ fileName: file.name, dataUrl: String(reader.result) })
+
+    setIsUploading(true)
+    try {
+      const upload = await uploadReferenceImage(file, purpose)
+      onChange({
+        uploadId: upload.id,
+        referenceId: referenceId ?? `img_${crypto.randomUUID().slice(0, 8)}`,
+        fileName: upload.filename,
+        url: upload.url,
+        mimeType: upload.mime_type,
+        size: upload.size,
+        width: upload.width,
+        height: upload.height,
+        expiresAt: upload.expires_at,
+      })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '上传失败')
+    } finally {
+      setIsUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   return (
-    <div className="jm-uploader">
-      <span className="jm-field__label">参考图（图生视频，可选）</span>
+    <div className={className ? `jm-uploader ${className}` : 'jm-uploader'}>
       {value ? (
-        <div className="jm-uploader__preview">
-          <img src={value.dataUrl} alt={value.fileName} />
-          <div className="jm-uploader__info">
-            <span className="jm-uploader__name" title={value.fileName}>
-              {value.fileName}
-            </span>
-            <button
-              type="button"
-              className="jm-uploader__remove"
-              disabled={disabled}
-              onClick={() => onChange(null)}
-            >
-              移除
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          className="jm-uploader__thumb"
+          title={`${value.fileName}（点击移除）`}
+          disabled={disabled || isUploading}
+          onClick={() => onChange(null)}
+        >
+          <img src={value.url} alt={value.fileName} />
+          <span className="jm-uploader__reference">@{value.fileName}</span>
+          <span className="jm-uploader__remove" aria-hidden="true">
+            ×
+          </span>
+        </button>
       ) : (
         <button
           type="button"
-          className="jm-uploader__zone"
-          disabled={disabled}
+          className="jm-uploader__add"
+          title={title ?? '上传参考图（图生视频）'}
+          disabled={disabled || isUploading}
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault()
             const file = e.dataTransfer.files[0]
-            if (file) handleFile(file)
+            if (file) void handleFile(file)
           }}
         >
-          <span className="jm-uploader__icon" aria-hidden="true">
-            ＋
+          <span className="jm-uploader__plus" aria-hidden="true">
+            +
           </span>
-          <span>点击或拖入图片</span>
-          <span className="jm-uploader__hint">PNG / JPG / WebP，≤ 5MB</span>
+          {label && <span className="jm-uploader__label">{label}</span>}
         </button>
       )}
       <input
@@ -80,11 +107,20 @@ export function ImageUploader({ value, onChange, disabled }: ImageUploaderProps)
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0]
-          if (file) handleFile(file)
+          if (file) void handleFile(file)
           e.target.value = ''
         }}
       />
-      {error && <p className="jm-uploader__error">{error}</p>}
+      {error && (
+        <span className="jm-uploader__error" role="alert">
+          {error}
+        </span>
+      )}
+      {isUploading && (
+        <span className="jm-uploader__loading" aria-hidden="true">
+          <span className="jm-spinner" />
+        </span>
+      )}
     </div>
   )
 }

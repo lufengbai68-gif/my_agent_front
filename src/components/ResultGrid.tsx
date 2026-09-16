@@ -5,7 +5,7 @@ import { TaskProgress } from './TaskProgress'
 import { VideoCard } from './VideoCard'
 
 interface ResultGridProps {
-  task: GenerationTask | null
+  task: GenerationTask
   onPreview: (result: GenerationResult) => void
   onRegenerate: () => void
   onRetry: () => void
@@ -35,17 +35,6 @@ export function ResultGrid({
   onRegenerate,
   onRetry,
 }: ResultGridProps) {
-  // ---- 空闲 ----
-  if (!task) {
-    return (
-      <div className="jm-empty">
-        <div className="jm-empty__glow" aria-hidden="true" />
-        <h2>你好，今天想要创作什么？</h2>
-        <p>在左侧输入创意描述，选择参数后点击「立即生成」</p>
-      </div>
-    )
-  }
-
   const { status } = task
 
   // ---- 进行中（含提交占位）----

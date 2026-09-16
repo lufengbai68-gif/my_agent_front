@@ -9,9 +9,15 @@ export type GenerationMode = 'image' | 'video'
 
 export type TaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
 
-export type AspectRatio = '1:1' | '4:3' | '3:4' | '16:9' | '9:16'
+export type AspectRatio = 'auto' | '1:1' | '2:3' | '3:4' | '4:3' | '3:2' | '16:9' | '9:16' | '21:9'
+
+export type ImageResolution = '1K' | '2K' | '4K'
+
+export type VideoResolution = '720P' | '1080P' | '2K'
 
 export type MotionLevel = 'static' | 'smooth' | 'dynamic'
+
+export type VideoGenerationType = 'first_last_frame' | 'all_in_one'
 
 // ---------- 请求（以 mode 判别的联合类型）----------
 
@@ -21,26 +27,45 @@ export interface ImageGenerationRequest {
   /** 模型 id，见 constants/options.ts */
   model: string
   aspectRatio: AspectRatio
+  resolution: ImageResolution
   count: 1 | 2 | 4
   seed?: number
+  /** 携带参考图即为图生图 */
+  referenceImage?: ReferenceImage | null
 }
 
 /** 图生视频的参考图（dataUrl 为本地预览，由真实适配器决定上传方式） */
+export type ReferenceImagePurpose = 'reference' | 'first_frame' | 'last_frame'
+
+export type ReferenceImageRole = '' | 'subject' | 'style' | 'first_frame' | 'last_frame'
+
 export interface ReferenceImage {
+  /** 后端上传记录 ID */
+  uploadId: string
+  /** 输入框里的短引用，例如 img_1 */
+  referenceId: string
   fileName: string
-  dataUrl: string
+  url: string
+  mimeType: string
+  size: number
+  width: number
+  height: number
+  expiresAt: number
 }
 
 export interface VideoGenerationRequest {
   mode: 'video'
   prompt: string
   model: string
-  /** 视频模式仅开放 16:9 / 9:16 */
-  aspectRatio: Extract<AspectRatio, '16:9' | '9:16'>
-  durationSec: 5 | 10
+  generationType?: VideoGenerationType
+  aspectRatio: AspectRatio
+  durationSec: 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+  resolution: VideoResolution
   motion: MotionLevel
   /** 携带参考图即为图生视频 */
   referenceImage?: ReferenceImage | null
+  /** 首尾帧模式的尾帧；仅 UI 支持，后端代理可按需透传 */
+  lastFrame?: ReferenceImage | null
 }
 
 export type GenerationRequest = ImageGenerationRequest | VideoGenerationRequest
@@ -96,16 +121,18 @@ export type ModelBadge = 'new' | 'fast' | 'pro'
 
 export interface ModelOption {
   id: string
-  /** 展示名，如「即梦图片 3.0」 */
+  /** 展示名，如「灵画图片 3.0」 */
   name: string
   mode: GenerationMode
   description: string
   badge?: ModelBadge
-}
-
-export interface PromptPreset {
-  label: string
-  prompt: string
+  capabilities?: {
+    text: boolean
+    image: boolean
+    audio: boolean
+    video: boolean
+    file: boolean
+  }
 }
 
 // ---------- 服务层传输类型 ----------

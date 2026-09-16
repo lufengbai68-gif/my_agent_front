@@ -27,5 +27,5 @@ function extOf(url: string): string {
 }
 
 export function buildFileName(kind: 'image' | 'video', taskId: string, index: number): string {
-  return `jimeng-${kind}-${taskId}-${index + 1}.${extOf(kind === 'image' ? 'x.png' : 'x.mp4') === 'mp4' ? 'mp4' : 'png'}`
+  return `artvis-${kind}-${taskId}-${index + 1}.${extOf(kind === 'image' ? 'x.png' : 'x.mp4') === 'mp4' ? 'mp4' : 'png'}`
 }

@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_USE_MOCK?: string
   /** 真实适配器的代理地址（自己的服务端代理，非火山引擎直连） */
   readonly VITE_API_BASE_URL?: string
+  /** 对话后端地址；未设置时回退到 VITE_API_BASE_URL */
+  readonly VITE_CHAT_API_BASE_URL?: string
   /** 代理的 Bearer Token（仅发给自己的代理） */
   readonly VITE_API_KEY?: string
   /** 轮询间隔毫秒数，默认 1500 */

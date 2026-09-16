@@ -1,6 +1,6 @@
-# 即梦 AI 创作平台（前端）
+# 灵画 Artvis - AI 创作平台（前端）
 
-仿[即梦](https://jimeng.jianying.com/ai-tool/home/)的 AI 图片/视频生成 Web 前端。用户输入创意描述、选择生成参数，提交异步任务后通过轮询获得生成结果。
+AI 图片/视频生成 Web 前端。用户输入创意描述、选择生成参数，提交异步任务后通过轮询获得生成结果。
 
 技术栈：**React 19 + Vite + TypeScript**，零额外运行时依赖（无 UI 库 / 无状态库 / 无 axios），原生 CSS 变量实现暗色主题。
 
@@ -52,10 +52,7 @@ VITE_API_KEY=your-proxy-token
 
 > ⚠️ **不要**把 `VITE_API_BASE_URL` 指向火山引擎即梦 API 直连地址：官方 API 要求 HMAC-SHA256 签名（需要 SecretKey，绝不能进浏览器代码）且受 CORS 限制。`src/api/volcanoAdapter.ts` 约定的代理契约：`POST /tasks`（提交）、`GET /tasks/:id`（查询）、`DELETE /tasks/:id`（取消），由你的后端完成签名转发。
 
-页面右上角标签显示当前模式（Mock 模式 / 真实 API）。
-
 ## 项目结构
-
 ```
 src/
 ├── api/            # 服务层：接口 + Mock 适配器 + 真实适配器 stub
@@ -72,7 +69,3 @@ src/
 - **任务生命周期**（`types/generation.ts`）：`GenerationTask` 携带原始 request，「重新生成」直接复用
 - **轮询**（`hooks/useGenerationTask.ts`）：effect + 递归 `setTimeout` + `AbortController`，StrictMode 双挂载安全、卸载自动清理、3 分钟硬超时
 - **Mock 确定性**：结果 URL 是 taskId 的纯函数，轮询期间不闪烁
-
-## 即梦官网对比说明
-
-本项目为精简 MVP：官网的画布编辑、社区探索、资产库、登录等不在范围内，聚焦「提示词 → 参数 → 生成 → 结果」核心链路。

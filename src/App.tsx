@@ -1,49 +1,36 @@
-import { useCallback, useMemo, useState } from 'react'
-import { GenerateButton } from './components/GenerateButton'
-import { Header } from './components/Header'
-import { ModeTabs } from './components/ModeTabs'
-import { ParamPanel } from './components/ParamPanel'
-import { PreviewModal } from './components/PreviewModal'
-import { PromptInput } from './components/PromptInput'
-import { ResultGrid } from './components/ResultGrid'
-import {
-  IMAGE_MODELS,
-  IMAGE_PROMPT_PRESETS,
-  VIDEO_MODELS,
-  VIDEO_PROMPT_PRESETS,
-} from './constants/options'
-import { useGenerationTask } from './hooks/useGenerationTask'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ConversationPanel } from './components/ConversationPanel'
+import { HeroCard } from './components/HeroCard'
+import { useConversation } from './hooks/useConversation'
+import { useChatModels } from './hooks/useChatModels'
 import type {
   GenerationMode,
   GenerationRequest,
-  GenerationResult,
   ImageGenerationRequest,
   VideoGenerationRequest,
 } from './types/generation'
 
-/** 各模式默认参数（App 内部使用，prompt 由独立 state 管理） */
 const DEFAULT_IMAGE_PARAMS: ImageGenerationRequest = {
   mode: 'image',
   prompt: '',
-  model: IMAGE_MODELS[0].id,
-  aspectRatio: '1:1',
+  model: '',
+  aspectRatio: 'auto',
+  resolution: '1K',
   count: 4,
+  referenceImage: null,
 }
 
 const DEFAULT_VIDEO_PARAMS: VideoGenerationRequest = {
   mode: 'video',
   prompt: '',
-  model: VIDEO_MODELS[0].id,
-  aspectRatio: '16:9',
+  model: '',
+  generationType: 'first_last_frame',
+  aspectRatio: 'auto',
   durationSec: 5,
+  resolution: '720P',
   motion: 'smooth',
   referenceImage: null,
-}
-
-/** 当前预览项 + 其在结果列表中的序号（用于下载命名） */
-interface PreviewState {
-  item: GenerationResult
-  index: number
+  lastFrame: null,
 }
 
 function App() {
@@ -53,13 +40,52 @@ function App() {
   const [videoPrompt, setVideoPrompt] = useState('')
   const [imageParams, setImageParams] = useState(DEFAULT_IMAGE_PARAMS)
   const [videoParams, setVideoParams] = useState(DEFAULT_VIDEO_PARAMS)
-  const [preview, setPreview] = useState<PreviewState | null>(null)
+  const { models: backendModels, isLoading: modelsLoading } = useChatModels()
 
-  const { task, isBusy, submitError, submit, cancel, reset } = useGenerationTask()
+  const imageModels = useMemo(
+    () => backendModels.filter((model) => model.mode === 'image'),
+    [backendModels],
+  )
+  const videoModels = useMemo(
+    () => backendModels.filter((model) => model.mode === 'video'),
+    [backendModels],
+  )
+
+  useEffect(() => {
+    if (modelsLoading || backendModels.length === 0 || mode !== 'image') return
+    if (imageModels.length === 0 && videoModels.length > 0) {
+      setMode('video')
+    }
+  }, [backendModels.length, imageModels.length, mode, modelsLoading, videoModels.length])
+
+  useEffect(() => {
+    if (
+      imageModels.length &&
+      !imageModels.some((model) => model.id === imageParams.model)
+    ) {
+      setImageParams((prev) => ({ ...prev, model: imageModels[0].id }))
+    }
+  }, [imageModels, imageParams.model])
+
+  useEffect(() => {
+    if (
+      videoModels.length &&
+      !videoModels.some((model) => model.id === videoParams.model)
+    ) {
+      setVideoParams((prev) => ({ ...prev, model: videoModels[0].id }))
+    }
+  }, [videoModels, videoParams.model])
+
+  const {
+    messages,
+    isBusy,
+    submitMessage,
+    cancelMessage,
+  } = useConversation()
 
   const prompt = mode === 'image' ? imagePrompt : videoPrompt
   const setPrompt = mode === 'image' ? setImagePrompt : setVideoPrompt
-  const presets = mode === 'image' ? IMAGE_PROMPT_PRESETS : VIDEO_PROMPT_PRESETS
+  const hasConversation = messages.length > 0
 
   const buildRequest = useCallback((): GenerationRequest | null => {
     if (!prompt.trim()) return null
@@ -71,17 +97,33 @@ function App() {
   const handleGenerate = useCallback(() => {
     const request = buildRequest()
     if (request) {
-      setPreview(null)
-      submit(request)
+      submitMessage(request)
+      setPrompt('')
     }
-  }, [buildRequest, submit])
+  }, [buildRequest, submitMessage, setPrompt])
 
-  /** 重新生成 / 重试：复用上一任务的原始参数 */
-  const handleRegenerate = useCallback(() => {
-    if (!task) return
-    setPreview(null)
-    submit(task.request)
-  }, [task, submit])
+  /** 重新生成 / 重试：复用消息中的原始参数 */
+  const handleRegenerate = useCallback((request: GenerationRequest) => {
+    if (isBusy) return
+    submitMessage(request)
+  }, [isBusy, submitMessage])
+
+  const handleEditRequest = useCallback((request: GenerationRequest) => {
+    if (request.mode === 'image') {
+      setMode('image')
+      setImagePrompt(request.prompt)
+      setImageParams(request)
+      return
+    }
+
+    setMode('video')
+    setVideoPrompt(request.prompt)
+    setVideoParams({
+      ...DEFAULT_VIDEO_PARAMS,
+      ...request,
+      generationType: request.generationType ?? 'first_last_frame',
+    })
+  }, [])
 
   const patchImageParams = useCallback((patch: Partial<ImageGenerationRequest>) => {
     setImageParams((prev) => ({ ...prev, ...patch }))
@@ -98,63 +140,38 @@ function App() {
 
   return (
     <div className="jm-shell">
-      <Header />
+      <main className={`jm-main ${hasConversation ? 'is-conversation' : ''}`}>
+        {/* 对话结果：按用户/模型流式展示 */}
+        {hasConversation && (
+          <ConversationPanel
+            messages={messages}
+          onEditRequest={handleEditRequest}
+          onRegenerate={handleRegenerate}
+          onRetry={handleRegenerate}
+        />
+        )}
 
-      <main className="jm-main">
-        {/* 左栏：创作面板 */}
-        <section className="jm-panel" aria-label="创作面板">
-          <ModeTabs mode={mode} onChange={setMode} />
-          <PromptInput
-            value={prompt}
-            onChange={setPrompt}
-            disabled={isBusy}
-            presets={presets}
-          />
-          <ParamPanel
-            mode={mode}
-            imageParams={imageParams}
-            videoParams={videoParams}
-            onImageParamsChange={patchImageParams}
-            onVideoParamsChange={patchVideoParams}
-            disabled={isBusy}
-          />
-          {submitError && <p className="jm-submit-error">{submitError}</p>}
-          <GenerateButton
-            disabled={!canGenerate}
-            isBusy={isBusy}
-            onGenerate={handleGenerate}
-            onCancel={cancel}
-          />
-        </section>
-
-        {/* 右栏：画布 */}
-        <section className="jm-canvas" aria-label="生成结果">
-          <ResultGrid
-            task={task}
-            onPreview={(item) => {
-              const index = task?.results.indexOf(item) ?? 0
-              setPreview({ item, index })
-            }}
-            onRegenerate={handleRegenerate}
-            onRetry={handleRegenerate}
-          />
-          {task?.status === 'succeeded' && (
-            <div className="jm-canvas__footer">
-              <button type="button" className="jm-btn-ghost" onClick={reset}>
-                清空画布
-              </button>
-            </div>
-          )}
-        </section>
+        {/* 创作入口 */}
+        <HeroCard
+          mode={mode}
+          onModeChange={setMode}
+          prompt={prompt}
+          onPromptChange={setPrompt}
+          imageParams={imageParams}
+          videoParams={videoParams}
+          imageModels={imageModels}
+          videoModels={videoModels}
+          modelsLoading={modelsLoading}
+          onImageParamsChange={patchImageParams}
+          onVideoParamsChange={patchVideoParams}
+          isBusy={isBusy}
+          canGenerate={canGenerate}
+          onGenerate={handleGenerate}
+          onCancel={cancelMessage}
+          hasConversation={hasConversation}
+        />
       </main>
 
-      <PreviewModal
-        item={preview?.item ?? null}
-        taskId={task?.id ?? ''}
-        index={preview?.index ?? 0}
-        onClose={() => setPreview(null)}
-        onRegenerate={handleRegenerate}
-      />
     </div>
   )
 }
