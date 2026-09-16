@@ -86,6 +86,13 @@ function App() {
   const prompt = mode === 'image' ? imagePrompt : videoPrompt
   const setPrompt = mode === 'image' ? setImagePrompt : setVideoPrompt
   const hasConversation = messages.length > 0
+  const [isPromptCollapsed, setIsPromptCollapsed] = useState(false)
+
+  useEffect(() => {
+    if (!hasConversation) {
+      setIsPromptCollapsed(false)
+    }
+  }, [hasConversation])
 
   const buildRequest = useCallback((): GenerationRequest | null => {
     if (!prompt.trim()) return null
@@ -123,6 +130,7 @@ function App() {
       ...request,
       generationType: request.generationType ?? 'first_last_frame',
     })
+    setIsPromptCollapsed(false)
   }, [])
 
   const patchImageParams = useCallback((patch: Partial<ImageGenerationRequest>) => {
@@ -139,15 +147,16 @@ function App() {
   )
 
   return (
-    <div className="jm-shell">
+    <div className={`jm-shell ${hasConversation ? 'is-conversation' : ''}`}>
       <main className={`jm-main ${hasConversation ? 'is-conversation' : ''}`}>
         {/* 对话结果：按用户/模型流式展示 */}
         {hasConversation && (
-          <ConversationPanel
-            messages={messages}
+        <ConversationPanel
+          messages={messages}
           onEditRequest={handleEditRequest}
           onRegenerate={handleRegenerate}
           onRetry={handleRegenerate}
+          onScroll={() => setIsPromptCollapsed(true)}
         />
         )}
 
@@ -169,6 +178,9 @@ function App() {
           onGenerate={handleGenerate}
           onCancel={cancelMessage}
           hasConversation={hasConversation}
+          isCollapsed={isPromptCollapsed}
+          onExpand={() => setIsPromptCollapsed(false)}
+          onCollapse={() => setIsPromptCollapsed(true)}
         />
       </main>
 

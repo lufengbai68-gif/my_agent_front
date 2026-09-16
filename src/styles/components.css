@@ -641,7 +641,7 @@
   padding: 13px 0;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--accent-primary);
+  background: transparent;
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -650,7 +650,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(36, 175, 207, 0.24);
+  box-shadow: none;
   transition:
     transform 0.15s,
     box-shadow 0.2s,
@@ -659,7 +659,7 @@
 
 .jm-btn-generate:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 28px rgba(36, 175, 207, 0.34);
+  box-shadow: none;
 }
 
 .jm-btn-generate:disabled {
@@ -672,6 +672,12 @@
   border: 0;
   color: var(--text-secondary);
   box-shadow: none;
+}
+
+.jm-btn-generate:not(.is-busy) img {
+  display: block;
+  width: 36px;
+  height: 36px;
 }
 
 /* 加载 spinner */
@@ -747,8 +753,8 @@
   width: 100%;
   max-width: 750px;
   margin-inline: auto;
-  flex: 0 0 auto;
-  min-height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 24px;
   background: var(--bg-page);
   border: 0;
@@ -756,18 +762,71 @@
 }
 
 .jm-conversation__canvas {
-  flex: 0 0 auto;
-  min-height: auto;
-  height: auto;
-  overflow: visible;
-  padding: 28px 0 32px;
-  scroll-behavior: smooth;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: 28px 0 20px;
   scrollbar-width: none;
+}
+
+.jm-conversation__canvas > div {
+  width: 100%;
+}
+
+.jm-conversation__scroll-row {
+  position: relative;
+  width: 100%;
+  flex: 0 0 auto;
+  height: 30px;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--bg-page);
+  z-index: 20;
+}
+
+.jm-conversation__scroll-nav {
+  position: static;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2f2f2;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.jm-conversation__scroll-nav:hover {
+  background: #eeeeee;
+  transform: translateY(-1px);
+}
+
+.jm-conversation__scroll-nav img {
+  display: block;
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+
+.jm-conversation__scroll-nav.is-top img {
+  transform: rotate(180deg);
 }
 
 .jm-conversation__item {
   display: flex;
   margin-bottom: 26px;
+}
+
+.jm-conversation__item:last-child {
+  margin-bottom: 0;
 }
 
 .jm-conversation__item.is-user {
@@ -797,8 +856,8 @@
   border-bottom-left-radius: 4px;
   background: #dbeaf7;
   color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .jm-conversation__bubble p {
@@ -962,8 +1021,8 @@
 .jm-conversation__error {
   margin: 10px 0 0;
   max-width: 680px;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 18px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -978,27 +1037,28 @@
 .jm-conversation__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   margin-top: 12px;
 }
 
 .jm-conversation__action {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
   border: 0;
   border-radius: 999px;
   background: #f2f2f2;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .jm-conversation__action svg,
 .jm-conversation__action img {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 
 .jm-conversation__action:hover {
@@ -1193,7 +1253,7 @@
   }
 
   .jm-conversation__canvas {
-    padding: 20px 14px;
+    padding: 20px 0;
   }
 
   .jm-conversation__bubble {

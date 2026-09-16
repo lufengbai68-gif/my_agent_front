@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type {
   GenerationMode,
   ImageGenerationRequest,
@@ -28,6 +29,9 @@ interface HeroCardProps {
   onGenerate: () => void
   onCancel: () => void
   hasConversation?: boolean
+  isCollapsed?: boolean
+  onExpand?: () => void
+  onCollapse?: () => void
 }
 
 /** 居中创作入口卡片：提示词画布 + 底部参数栏 + 生成 */
@@ -48,7 +52,11 @@ export function HeroCard({
   onGenerate,
   onCancel,
   hasConversation = false,
+  isCollapsed = false,
+  onExpand,
+  onCollapse,
 }: HeroCardProps) {
+  const heroRef = useRef<HTMLElement>(null)
   const usesFrameUploaders =
     mode === 'video' && videoParams.generationType !== 'all_in_one'
   const removeReferenceToken = (fileName: string) => {
@@ -109,8 +117,51 @@ export function HeroCard({
       />
     ) : undefined
 
+  useEffect(() => {
+    if (!hasConversation || isCollapsed) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && heroRef.current?.contains(event.target)) {
+        return
+      }
+      onCollapse?.()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [hasConversation, isCollapsed, onCollapse])
+
+  if (hasConversation && isCollapsed) {
+    return (
+      <section className="jm-hero jm-hero--conversation" aria-label="创作入口">
+        <div className="jm-hero-card jm-hero-card--collapsed">
+          <div className="jm-prompt-collapsed">
+            <div className="jm-prompt-collapsed__uploader">{attachments}</div>
+            <button
+              type="button"
+              className="jm-prompt-collapsed__field"
+              onClick={onExpand}
+              aria-label="展开创作输入框"
+            >
+              <span className="jm-prompt-collapsed__text">
+                {prompt || '上传参考素材、输入文字，自由组合图、文、视频多元元素，定义精彩互动。例如:@图片1模仿@视频1的动作'}
+              </span>
+            </button>
+            <GenerateButton
+              disabled={!canGenerate}
+              isBusy={isBusy}
+              onGenerate={onGenerate}
+              onCancel={onCancel}
+            />
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section
+      ref={heroRef}
       className={`jm-hero ${hasConversation ? 'jm-hero--conversation' : ''}`}
       aria-label="创作入口"
     >

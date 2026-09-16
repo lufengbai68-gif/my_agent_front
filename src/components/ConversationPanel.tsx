@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MediaList } from './ChatMedia'
 import type { ConversationMessage } from '../types/conversation'
 import type { GenerationRequest } from '../types/generation'
@@ -9,7 +9,10 @@ interface ConversationPanelProps {
   onEditRequest: (request: GenerationRequest) => void
   onRegenerate: (request: GenerationRequest) => void
   onRetry: (request: GenerationRequest) => void
+  onScroll?: () => void
 }
+
+const SCROLL_EDGE_THRESHOLD = 48
 
 function MessageActions({
   message,
@@ -289,38 +292,201 @@ export function ConversationPanel({
   onEditRequest,
   onRegenerate,
   onRetry,
+  onScroll,
 }: ConversationPanelProps) {
-  const panelRef = useRef<HTMLElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const scrollFrameRef = useRef<number | null>(null)
+  const shouldFollowBottomRef = useRef(true)
+  const programmaticScrollUntilRef = useRef(0)
+  const lastMessageSignatureRef = useRef('')
+  const previousMessageCountRef = useRef(0)
+  const [scrollState, setScrollState] = useState({
+    isScrollable: false,
+    isNearTop: true,
+    isNearBottom: true,
+  })
+  const followFrameRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    const container = panelRef.current?.parentElement
+  const syncScrollState = useCallback(() => {
+    const container = canvasRef.current
     if (!container) return
 
+    const maxScrollTop = Math.max(
+      0,
+      container.scrollHeight - container.clientHeight,
+    )
+    const nextState = {
+      isScrollable: maxScrollTop > SCROLL_EDGE_THRESHOLD,
+      isNearTop: container.scrollTop <= SCROLL_EDGE_THRESHOLD,
+      isNearBottom:
+        maxScrollTop - container.scrollTop <= SCROLL_EDGE_THRESHOLD,
+    }
+    shouldFollowBottomRef.current = nextState.isNearBottom
+    setScrollState((prevState) => (
+      prevState.isScrollable === nextState.isScrollable &&
+      prevState.isNearTop === nextState.isNearTop &&
+      prevState.isNearBottom === nextState.isNearBottom
+        ? prevState
+        : nextState
+    ))
+  }, [])
+
+  const scheduleScrollSync = useCallback(() => {
+    if (scrollFrameRef.current !== null) return
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      syncScrollState()
+    })
+  }, [syncScrollState])
+
+  const followBottom = useCallback(() => {
+    const container = canvasRef.current
+    if (!container || !shouldFollowBottomRef.current) return
+    programmaticScrollUntilRef.current = performance.now() + 120
     container.scrollTo({
       top: container.scrollHeight,
+      behavior: 'auto',
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    const container = canvasRef.current
+    if (!container) return
+
+    const lastMessage = messages[messages.length - 1]
+    const signature = lastMessage
+      ? [
+          lastMessage.id,
+          lastMessage.status,
+          lastMessage.text,
+          lastMessage.error,
+          lastMessage.media?.map((item) => `${item.type}:${item.url}`).join('|'),
+        ].join('\u001f')
+      : ''
+    const isNewMessage = signature !== lastMessageSignatureRef.current
+    lastMessageSignatureRef.current = signature
+    const hasNewMessage = messages.length > previousMessageCountRef.current
+    previousMessageCountRef.current = messages.length
+
+    if (hasNewMessage) {
+      shouldFollowBottomRef.current = true
+      programmaticScrollUntilRef.current = performance.now() + 120
+      container.scrollTop = container.scrollHeight
+      return
+    }
+
+    if (!isNewMessage || !shouldFollowBottomRef.current) return
+
+    programmaticScrollUntilRef.current = performance.now() + 120
+    container.scrollTop = container.scrollHeight
+  }, [messages])
+
+  useEffect(() => {
+    const container = canvasRef.current
+    if (!container) return
+
+    const isGenerating = messages.some(
+      (message) => message.status === 'pending' || message.status === 'streaming',
+    )
+    if (!isGenerating) return
+
+    const follow = () => {
+      if (shouldFollowBottomRef.current) {
+        container.scrollTop = container.scrollHeight
+      }
+      followFrameRef.current = requestAnimationFrame(follow)
+    }
+    followFrameRef.current = requestAnimationFrame(follow)
+
+    return () => {
+      if (followFrameRef.current !== null) {
+        cancelAnimationFrame(followFrameRef.current)
+        followFrameRef.current = null
+      }
+    }
+  }, [messages])
+
+  const handleScroll = useCallback(() => {
+    scheduleScrollSync()
+    if (performance.now() >= programmaticScrollUntilRef.current) {
+      onScroll?.()
+    }
+  }, [onScroll, scheduleScrollSync])
+
+  useEffect(() => {
+    const container = canvasRef.current
+    const content = contentRef.current
+    if (!container || !content) return
+
+    syncScrollState()
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', scheduleScrollSync)
+
+    const observer = new ResizeObserver(() => {
+      followBottom()
+      scheduleScrollSync()
+    })
+    observer.observe(container)
+    observer.observe(content)
+
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current)
+        scrollFrameRef.current = null
+      }
+      container.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', scheduleScrollSync)
+      observer.disconnect()
+    }
+  }, [followBottom, handleScroll, scheduleScrollSync, syncScrollState])
+
+  const scrollTo = (position: 'top' | 'bottom') => {
+    const container = canvasRef.current
+    if (!container) return
+
+    programmaticScrollUntilRef.current = performance.now() + 800
+    container.scrollTo({
+      top: position === 'top' ? 0 : container.scrollHeight,
       behavior: 'smooth',
     })
-  }, [messages.length])
+  }
 
   return (
-    <section ref={panelRef} className="jm-conversation" aria-label="对话记录">
-      <div className="jm-conversation__canvas">
-        {messages.length === 0 ? (
-          <div className="jm-conversation__empty">
-            <p>开始你的第一次创作对话</p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <ConversationItem
-              key={message.id}
-              message={message}
-              onEditRequest={onEditRequest}
-              onRegenerate={onRegenerate}
-              onRetry={onRetry}
-            />
-          ))
-        )}
+    <section className="jm-conversation" aria-label="对话记录">
+      <div ref={canvasRef} className="jm-conversation__canvas">
+        <div ref={contentRef}>
+          {messages.length === 0 ? (
+            <div className="jm-conversation__empty">
+              <p>开始你的第一次创作对话</p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <ConversationItem
+                key={message.id}
+                message={message}
+                onEditRequest={onEditRequest}
+                onRegenerate={onRegenerate}
+                onRetry={onRetry}
+              />
+            ))
+          )}
+        </div>
       </div>
+      {scrollState.isScrollable && (
+        <div className="jm-conversation__scroll-row">
+          <button
+            type="button"
+            className={`jm-conversation__scroll-nav ${scrollState.isNearBottom ? 'is-top' : ''}`}
+            aria-label={scrollState.isNearBottom ? '回到顶部' : '回到底部'}
+            title={scrollState.isNearBottom ? '回到顶部' : '回到底部'}
+            onClick={() => scrollTo(scrollState.isNearBottom ? 'top' : 'bottom')}
+          >
+            {scrollState.isNearBottom ? '顶部' : '底部'}
+            <img src="/icons/conversation-scroll.svg" alt="" aria-hidden="true" />
+          </button>
+        </div>
+      )}
     </section>
   )
 }

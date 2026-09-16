@@ -13,6 +13,7 @@ export interface ConversationAttachment {
   referenceId: string
   fileName: string
   url: string
+  mimeType?: string
   uploadId?: string
   purpose?: 'reference' | 'first_frame' | 'last_frame'
   width?: number

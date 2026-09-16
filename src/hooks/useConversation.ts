@@ -219,7 +219,7 @@ function createReferenceFromAttachment(
     referenceId: attachment.referenceId,
     fileName: attachment.fileName,
     url: attachment.url,
-    mimeType: 'image/jpeg',
+    mimeType: attachment.mimeType ?? 'image/jpeg',
     size: 0,
     width: attachment.width ?? 0,
     height: attachment.height ?? 0,
@@ -277,7 +277,7 @@ function mapHistoryMessage(
   )
   const attachments = (message.attachments ?? [])
     .filter((attachment) => attachment.kind === 'reference' && attachment.url)
-    .map((attachment) => {
+    .map((attachment): ConversationAttachment => {
       const url = attachment.url
       const fileName = attachment.file_name ?? getFileNameFromUrl(url)
       const uploadId = attachment.upload_id ??
@@ -288,9 +288,9 @@ function mapHistoryMessage(
         fileName,
         url,
         uploadId,
-        purpose: attachment.purpose && attachment.purpose !== 'output' && attachment.purpose !== 'style' && attachment.purpose !== 'subject'
-          ? attachment.purpose
-          : referenceRole === 'first_frame'
+        mimeType: attachment.mime_type,
+        purpose:
+          referenceRole === 'first_frame'
             ? 'first_frame'
             : referenceRole === 'last_frame'
               ? 'last_frame'
